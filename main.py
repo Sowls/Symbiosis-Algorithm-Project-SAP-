@@ -1484,7 +1484,202 @@ async def portfolio(ctx):
             inline=False
         )
     await ctx.send(embed=e)
+@bot.command()
+async def sniper(ctx):
+    """Terminal interactif V8.5 avec boutons par actif et scan global."""
+    class DashboardView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=None)
 
+        async def handle_click(self, interaction, asset_name):
+            await interaction.response.defer()
+            scores, news_score, whale, prix, atr, raw, _ = await analyze_asset(asset_name, ASSETS[asset_name])
+            if not scores or prix == 0:
+                return await interaction.followup.send(
+                    f"⚠️ Erreur : Marché **{asset_name}** fermé ou données inaccessibles.", ephemeral=True
+                )
+
+            # Consensus des 100 bots sur cet actif
+            avg_confirm = sum(scores.get(n, 0) for n, m in BOT_META.items() if m['famille'] == 'Confirmation') / 22
+            avg_retourn = sum(scores.get(n, 0) for n, m in BOT_META.items() if m['famille'] == 'Retournement') / 18
+            sc_ref = scores.get("Opti_Data_Driven_Confirm", avg_confirm)
+            ml_sc = raw.get('ml_score', 0) * 100
+
+            color = 0x2ecc71 if sc_ref >= 25 else (0xe74c3c if sc_ref <= -25 else 0xf1c40f)
+            action = "ACHAT 🟢" if sc_ref >= SIGNAL_THRESHOLD else ("VENTE 🔴" if sc_ref <= -SIGNAL_THRESHOLD else "NEUTRE 🟡")
+
+            market_status = "🟢 Ouvert" if is_market_open(asset_name) else "🔴 Fermé"
+            can_enter = "✅ Autorisées" if can_open_new_trade(asset_name, "Standard") else "🛡️ Bloquées (Protection Week-end)"
+            atr_ok = atr_is_favorable(atr, prix, asset_name)
+            atr_status = "✅ Favorable" if atr_ok else "⚠️ Défavorable"
+            atr_pct = raw.get('atr_pct', 0)
+            adx_val = raw.get('adx', 0)
+            regime = raw.get('market_regime', 'RANGE')
+
+            embed = discord.Embed(
+                title=f"🎯 Radar Sniper V8.5 : {asset_name}",
+                description=(
+                    f"Prix : **{prix:,.2f} $** | ATR : **{atr:.2f} $** ({atr_pct:.2f}%)\n"
+                    f"Marché : {market_status} | Entrées : {can_enter}\n"
+                    f"Régime ADX ({adx_val:.1f}) : **{'🔥 TENDANCE' if regime=='TREND' else '🌊 RANGE'}** | Volatilité : {atr_status}"
+                ),
+                color=color
+            )
+            embed.add_field(
+                name="⚖️ Signal Référence & Consensus par Famille",
+                value=(
+                    f"Signal Directeur : **{action}** ({sc_ref:+.0f}%)\n"
+                    f"`{create_pb(sc_ref, -100, 100, 12)}`\n"
+                    f"• Famille Confirmation : **{avg_confirm:+.0f}%**\n"
+                    f"• Famille Retournement : **{avg_retourn:+.0f}%**\n"
+                    f"• Prédiction IA (ML 30m) : **{ml_sc:+.0f}%**"
+                ),
+                inline=False
+            )
+            tendance = "Haussière ↗️" if raw.get('ema50', 0) > raw.get('ema200', 0) else "Baissière ↘️"
+            macd_statut = "Bullish 🟢" if raw.get('macd_hist', 0) > 0 else "Bearish 🔴"
+            bb_pct = raw.get('bb_pos', 0.5) * 100
+            embed.add_field(
+                name="📊 Indicateurs Techniques (5m / 1h)",
+                value=(
+                    f"**RSI (14) :** `{create_pb(raw.get('rsi', 50), 0, 100, 10)}` {raw.get('rsi', 50):.0f}\n"
+                    f"**Stoch :** `{create_pb(raw.get('stoch', 50), 0, 100, 10)}` {raw.get('stoch', 50):.0f}\n"
+                    f"**MACD hist :** {macd_statut} | **BB pos :** {bb_pct:.0f}%\n"
+                    f"**Tendance Macro 1h :** {tendance}"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="📰 Contexte & Flux",
+                value=(
+                    f"**Sentiment News :** {'Positif 🟩' if news_score > 0.1 else ('Négatif 🟥' if news_score < -0.1 else 'Neutre ⬜')} ({news_score:+.2f})\n"
+                    f"**Volume 5m :** {'🐳 BALEINE DÉTECTÉE' if whale else '🌊 Normal'}"
+                ),
+                inline=False
+            )
+            await interaction.followup.send(embed=embed)
+
+        async def handle_all(self, interaction):
+            await interaction.response.defer()
+            embed = discord.Embed(title="🌍 Radar Global Symbiosis V8.5 (6 Actifs)", color=0x3498db)
+            for a_name, a_ticker in ASSETS.items():
+                s, _, _, p, atr_v, raw_v, _ = await analyze_asset(a_name, a_ticker)
+                if not s or p == 0:
+                    embed.add_field(name=a_name, value="⚠️ Inaccessible / Fermé", inline=True)
+                    continue
+                sc = s.get("Opti_Data_Driven_Confirm", 0)
+                ml_s = raw_v.get('ml_score', 0) * 100
+                regime = raw_v.get('market_regime', 'RANGE')
+                action = "🟢 ACHAT" if sc >= SIGNAL_THRESHOLD else ("🔴 VENTE" if sc <= -SIGNAL_THRESHOLD else "🟡 NEUTRE")
+                market_str = "🟢" if is_market_open(a_name) else "🔴 Fermé"
+                embed.add_field(
+                    name=f"{a_name} ({market_str})",
+                    value=(
+                        f"**{action}** ({sc:+.0f}% | ML: {ml_s:+.0f}%)\n"
+                        f"Prix : **{p:,.2f}$**\n"
+                        f"Régime : `{regime}` (ADX {raw_v.get('adx', 0):.0f})"
+                    ),
+                    inline=True
+                )
+            await interaction.followup.send(embed=embed)
+
+        @discord.ui.button(label="BTC", style=discord.ButtonStyle.primary, row=0)
+        async def b1(self, i, b): await self.handle_click(i, 'Bitcoin')
+
+        @discord.ui.button(label="SOL", style=discord.ButtonStyle.primary, row=0)
+        async def b2(self, i, b): await self.handle_click(i, 'Solana')
+
+        @discord.ui.button(label="GOLD", style=discord.ButtonStyle.success, row=0)
+        async def b3(self, i, b): await self.handle_click(i, 'Or')
+
+        @discord.ui.button(label="SILVER", style=discord.ButtonStyle.success, row=0)
+        async def b4(self, i, b): await self.handle_click(i, 'Argent')
+
+        @discord.ui.button(label="PLAT", style=discord.ButtonStyle.secondary, row=1)
+        async def b5(self, i, b): await self.handle_click(i, 'Platine')
+
+        @discord.ui.button(label="OIL", style=discord.ButtonStyle.secondary, row=1)
+        async def b6(self, i, b): await self.handle_click(i, 'Crude Oil')
+
+        @discord.ui.button(label="TOUT SCANNER 🌍", style=discord.ButtonStyle.danger, row=1)
+        async def b_all(self, i, b): await self.handle_all(i)
+
+    await ctx.send(
+        embed=discord.Embed(
+            title="🎛️ Terminal Sniper Symbiosis V8.5",
+            description="Sélectionne un actif pour inspecter ses indicateurs en temps réel ou scanne les 6 marchés.",
+            color=0x2c3e50
+        ),
+        view=DashboardView()
+    )
+
+
+@bot.command()
+async def mypos(ctx):
+    if not human_trader['positions']:
+        e = discord.Embed(title="👤 Tes positions", description="Aucune position ouverte.\nUtilise `!buy <actif>` ou `!sell <actif>`.", color=0x95a5a6)
+        e.add_field(name="Capital disponible", value=f"**{human_trader['capital']:.2f}$**", inline=True)
+        return await ctx.send(embed=e)
+    msg = await ctx.send("🔄 Récupération des prix en temps réel...")
+    e = discord.Embed(title="👤 Tes positions ouvertes", color=0x3498db)
+    total_pnl = 0.0
+    for asset_name, pos in human_trader['positions'].items():
+        ticker = ASSETS[asset_name]
+        levier = LEVERAGE_MAP.get(asset_name, 10)
+        try:
+            if ticker.endswith('USDT'):
+                ohlcv = binance.fetch_ohlcv(ticker, '1m', limit=1)
+                prix_now = float(ohlcv[-1][4]) if ohlcv else pos['price']
+            else:
+                hist = yf.Ticker(ticker).history(period='1d', interval='1m')
+                prix_now = float(hist['Close'].iloc[-1]) if not hist.empty else pos['price']
+        except Exception:
+            prix_now = pos['price']
+        days = (time.time() - pos['open_time']) / 86400
+        diff_pct = (prix_now - pos['price']) / pos['price'] if pos['type'] == 'LONG' else (pos['price'] - prix_now) / pos['price']
+        notional = pos.get('notionnel', pos['margin'] * levier)
+        gross = notional * diff_pct
+        frais = notional * (COUT_PAR_LEG * 2 + days * FUNDING_RATE_DAY)
+        pnl = gross - frais
+        total_pnl += pnl
+        pnl_icon = "🟢" if pnl >= 0 else "🔴"
+        e.add_field(
+            name=f"📍 {asset_name} ({pos['type']} ×{levier})",
+            value=(
+                f"Entrée : **{pos['price']:,.2f}$** | Actuel : **{prix_now:,.2f}$**\n"
+                f"P&L Net latent : {pnl_icon} **{pnl:+.2f}$** (Taille : {notional:,.0f}$ | Frais : -{frais:.2f}$)\n"
+                f"🛑 SL : {pos['sl']:,.2f}$ | 🎯 TP : {pos['tp']:,.2f}$"
+            ),
+            inline=False
+        )
+    e.add_field(name="Bilan latent", value=f"P&L latent : **{total_pnl:+.2f}$** | Equity : **{human_trader['capital']+total_pnl:.2f}$**", inline=False)
+    await msg.edit(content=None, embed=e)
+
+
+@bot.command()
+async def mystats(ctx):
+    h = human_trader
+    pnl_total = ((h['capital'] - h['initial_capital']) / h['initial_capital']) * 100
+    wr = (h['wins'] / h['trades'] * 100) if h['trades'] > 0 else 0
+    e = discord.Embed(title="👤 Tes statistiques de trading", color=0x9b59b6)
+    e.add_field(name="Capital", value=f"**{h['capital']:.2f}$** ({pnl_total:+.1f}%)\nFrais payés : -{h.get('total_fees', 0.0):.2f}$", inline=True)
+    e.add_field(name="Performance", value=f"Trades : **{h['trades']}** (WR: **{wr:.1f}%**)\nMax DD : -{h['max_drawdown']:.1f}%", inline=True)
+    await ctx.send(embed=e)
+
+
+@bot.command()
+async def rank(ctx):
+    all_entries = list(paper_portfolio.items()) + [(HUMAN_NAME, human_trader)]
+    sorted_all = sorted(all_entries, key=lambda x: x[1]['capital'], reverse=True)
+    rank_num = next((i+1 for i, (n, _) in enumerate(sorted_all) if n == HUMAN_NAME), 0)
+    total = len(sorted_all)
+    e = discord.Embed(title=f"🏆 Ton rang : #{rank_num} / {total}", color=0xf1c40f)
+    for i in range(max(0, rank_num - 3), min(total, rank_num + 2)):
+        name, d = sorted_all[i]
+        pnl = ((d['capital'] - d['initial_capital']) / d['initial_capital']) * 100
+        prefix = "👉 **[TOI]** " if name == HUMAN_NAME else ""
+        e.add_field(name=f"#{i+1} {prefix}{name}", value=f"**{d['capital']:.2f}$** ({pnl:+.1f}%)", inline=False)
+    await ctx.send(embed=e)
 
 @bot.command(aliases=['mlstatus'])
 async def ml(ctx):

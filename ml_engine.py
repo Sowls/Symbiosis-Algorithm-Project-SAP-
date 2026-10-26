@@ -1,10 +1,8 @@
 """
-ml_engine.py — Module Machine Learning Quantitatif V8.0
-Corrections V8.0 :
-1. Alignement strict des features Train/Live (zéro décalage 5m/1h).
-2. Seuil de labellisation dynamique basé sur l'ATR (élimine le biais 95% Neutre sur l'Or/BTC).
-3. Pondération équilibrée des classes (sample_weight='balanced').
-4. Régularisation anti-overfitting (max_depth=3, min_samples_leaf=20, subsample=0.8).
+ml_engine.py — Module Machine Learning Quantitatif V8.5 (Symbiosis)
+- Alignement strict des features Train/Live (5m).
+- Labellisation dynamique indexée sur l'ATR (élimine le biais 'Neutre').
+- Pondération équilibrée des classes (sample_weight='balanced').
 """
 
 import time
@@ -20,7 +18,7 @@ warnings.filterwarnings('ignore', category=UserWarning)
 class MLEngine:
     RETRAIN_INTERVAL = 6 * 3600   # 6 heures
     PREDICTION_HORIZON = 6        # +6 bougies (30 min en 5m TF)
-    ATR_LABEL_MULT = 0.85         # Mouvement futur > 0.85 * ATR_5m pour être labellisé +1 ou -1
+    ATR_LABEL_MULT = 0.85         # Seuil dynamique = 0.85 * ATR_5m
     MIN_SAMPLES = 250
 
     FEATURE_NAMES = [
@@ -59,7 +57,7 @@ class MLEngine:
         macd_range = macd_hist.abs().rolling(50).max().replace(0, 1e-9)
         features['macd_hist_norm'] = (macd_hist / macd_range).clip(-1, 1)
 
-        # 3. EMA diff % (EMA50 vs EMA200 sur le même timeframe 5m)
+        # 3. EMA diff % (EMA50 vs EMA200 5m)
         ema50 = df['Close'].ewm(span=50, adjust=False).mean()
         ema200 = df['Close'].ewm(span=200, adjust=False).mean()
         features['ema_diff_pct'] = ((ema50 - ema200) / ema200.replace(0, 1e-9) * 100).clip(-5, 5)
@@ -118,10 +116,6 @@ class MLEngine:
         return features
 
     def _create_labels(self, df: pd.DataFrame, atr_pct_series: pd.Series) -> pd.Series:
-        """
-        Crée les labels dynamiques basés sur la volatilité (ATR) de l'actif.
-        Évite qu'un actif peu volatil (Or) ait 96% de labels '0'.
-        """
         future_return_pct = (df['Close'].shift(-self.PREDICTION_HORIZON) / df['Close'] - 1) * 100
         dyn_threshold = (atr_pct_series * self.ATR_LABEL_MULT).clip(lower=0.08, upper=1.50)
 
@@ -131,7 +125,6 @@ class MLEngine:
         return labels
 
     def extract_latest_feature_dict(self, df: pd.DataFrame) -> dict:
-        """Extrait exactement le même dictionnaire de features pour la dernière bougie (zéro biais Train/Live)."""
         feats = self._extract_features(df).ffill().bfill()
         if feats.empty:
             return {k: 0.0 for k in self.FEATURE_NAMES}
@@ -172,15 +165,14 @@ class MLEngine:
             X_train_scaled = scaler.fit_transform(X_train)
             X_val_scaled = scaler.transform(X_val)
 
-            # Poids équilibrés pour empêcher le modèle de prédire 'Neutre' 90% du temps
             sample_weights = compute_sample_weight(class_weight='balanced', y=y_train)
 
             model = GradientBoostingClassifier(
                 n_estimators=80,
-                max_depth=3,          # Réduit de 4 à 3 contre le surapprentissage
-                learning_rate=0.05,   # Apprentissage plus progressif
+                max_depth=3,
+                learning_rate=0.05,
                 subsample=0.8,
-                min_samples_leaf=20,  # Exige au moins 20 bougies par feuille
+                min_samples_leaf=20,
                 random_state=42
             )
             model.fit(X_train_scaled, y_train, sample_weight=sample_weights)
@@ -242,7 +234,6 @@ class MLEngine:
                 elif cls == -1:
                     prob_down = prob
 
-            # Amplification douce pour que le score ML atteigne [-1, +1] sur forte conviction
             raw_diff = (prob_up - prob_down) * 1.35
             return max(-1.0, min(1.0, float(raw_diff)))
 

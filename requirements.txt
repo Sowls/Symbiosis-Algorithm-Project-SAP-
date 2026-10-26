@@ -9,3 +9,4 @@ finnhub-python>=2.4.19
 flask>=3.0.0
 nest_asyncio>=1.6.0
 requests>=2.31.0
+python-dotenv

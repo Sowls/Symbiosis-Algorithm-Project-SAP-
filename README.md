@@ -39,7 +39,7 @@ L'itération de la V1 à la V8.0 sur données réelles a mis en évidence trois 
 
 ---
 
-## ⚙️ Moteur Financier & Gestion du Risque
+## Moteur Financier & Gestion du Risque
 
 * **Position Sizing par Demi-Critère de Kelly :** Pour les agents adaptatifs et ML, la fraction du capital engagée est ajustée dynamiquement selon l'espérance mathématique réelle :
   $$f^* = \frac{1}{2} \left( p - \frac{1 - p}{b} \right)$$

@@ -23,7 +23,7 @@ from ml_engine import ml_engine
 load_dotenv()
 nest_asyncio.apply()
 
-print("⚡ Initialisation de Symbiosis Algorithm Trading V8.5 (100 Bots)...", flush=True)
+print("⚡ Initialisation de Symbiosis Algorithm Trading V8.6 (100 Bots - Scan 10m - Seuil 65%)...", flush=True)
 analyzer = SentimentIntensityAnalyzer()
 binance = ccxt.binance({'enableRateLimit': True})
 
@@ -31,14 +31,14 @@ binance = ccxt.binance({'enableRateLimit': True})
 app = Flask('')
 @app.route('/')
 def home():
-    return "🟢 Symbiosis Algorithm Trading V8.5 (100 Bots : Confirm, Retourn, Caméléon, ML, RL, Spécialistes, Méta) Online."
+    return "🟢 Symbiosis Algorithm Trading V8.6 (100 Bots | Scan 10m | Seuil 65%) Online."
 def run():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 def keep_alive():
     Thread(target=run, daemon=True).start()
 
-# --- CONFIGURATION SÉCURISÉE (Variables d'environnement Render / .env) ---
+# --- CONFIGURATION SÉCURISÉE ---
 TOKEN = os.getenv('DISCORD_TOKEN')
 CHANNEL_ID = int(os.getenv('DISCORD_CHANNEL_ID', '0'))
 JSONBIN_ID = os.getenv('JSONBIN_ID')
@@ -72,7 +72,7 @@ FUNDING_RATE_DAY = 0.0006 # 0.06% / jour
 COUT_PAR_LEG = FRAIS_EXCHANGE + SPREAD + SLIPPAGE  # 0.001 (0.10%) par leg
 
 MARGIN_PER_TRADE = 0.25   # 25% du capital de base par trade
-SIGNAL_THRESHOLD = 55     # Seuil d'entrée de base
+SIGNAL_THRESHOLD = 65     # REHAUSSÉ À 65% (au lieu de 55%) pour exiger une forte conviction
 INCUBATION_DAYS = 14      # 2 semaines d'observation avant l'entrée en chasse des Méta-Bots
 COOLDOWN_SECONDS = 1800   # 30 minutes d'attente après un Stop-Loss sur le même actif
 
@@ -110,7 +110,7 @@ def is_market_open(asset_name: str) -> bool:
     if asset_name not in FUTURES_ASSETS:
         return True
     now_utc = datetime.now(timezone.utc)
-    weekday = now_utc.weekday()  # 0=Lundi ... 4=Vendredi, 5=Samedi, 6=Dimanche
+    weekday = now_utc.weekday()
     hour = now_utc.hour
     if weekday == 4 and hour >= 22:
         return False
@@ -121,22 +121,16 @@ def is_market_open(asset_name: str) -> bool:
     return True
 
 def can_open_new_trade(asset_name: str, bot_name: str) -> bool:
-    """
-    1. Bloque les nouvelles entrées sur Futures le vendredi dès 19h00 UTC (évite le piège du week-end).
-    2. Bloque la 1ère heure de réouverture le dimanche (22h00 - 23h00 UTC : spreads trop larges).
-    3. Applique le filtre horaire institutionnel (Londres / NY) pour les bots Killzone.
-    """
     now_utc = datetime.now(timezone.utc)
     weekday = now_utc.weekday()
     hour = now_utc.hour
 
     if asset_name in FUTURES_ASSETS:
         if weekday == 4 and hour >= 19:
-            return False  # Plus d'entrée vendredi soir après 19h UTC
+            return False  # Gel des entrées Futures dès vendredi 19h00 UTC
         if weekday == 6 and hour < 23:
             return False  # Gel pendant la 1ère heure de réouverture dimanche soir
 
-    # Filtre spécial pour les bots Killzone (08h-11h UTC Londres & 13h-16h UTC New York)
     if "Killzone" in bot_name:
         if not ((8 <= hour < 11) or (13 <= hour < 16)):
             return False
@@ -144,7 +138,6 @@ def can_open_new_trade(asset_name: str, bot_name: str) -> bool:
     return True
 
 def is_friday_pre_close_window(asset_name: str) -> bool:
-    """Vendredi entre 21h00 et 21h59 UTC : fenêtre de protection avant fermeture des marchés Futures."""
     if asset_name not in FUTURES_ASSETS:
         return False
     now_utc = datetime.now(timezone.utc)
@@ -163,7 +156,7 @@ def create_pb(value, min_val, max_val, length=10):
 
 
 # =====================================================================
-# GÉNÉRATION DES 100 BOTS V8.5 (AVEC LES NOUVELLES ARCHÉTYPES ADAPTATIFS)
+# GÉNÉRATION DES 100 BOTS V8.6 (AVEC LE CHAMPION HISTORIQUE V7)
 # =====================================================================
 TRADER_PROFILES = {}
 BOT_META = {}
@@ -176,48 +169,44 @@ def register_bot(name, weights, mode, famille, stars_val, desc, meta_type=None, 
         "mode": mode,          # 'CONFIRM', 'RETOURN', 'CAMELEON', 'META', 'TEMOIN'
         "desc": desc,
         "meta_type": meta_type,
-        "lr": lr,              # Learning rate > 0 pour les bots RL auto-adaptatifs
-        "special": special     # 'PULLBACK', 'SQUEEZE', 'STOPHUNT', 'SPECIALIST', 'AUTOTHRESH', 'KILLZONE'
+        "lr": lr,
+        "special": special
     }
 
-# ── 1. FAMILLE CONFIRMATION & STRUCTURE (22 Bots : Tendance, Pullback MTF, Squeeze, Killzone) ──
+# ── 1. FAMILLE CONFIRMATION & STRUCTURE (22 Bots : Inclut Kelly_Optimizer_V7_Confirm !) ──
 CONFIRM_SPECS = [
+    ("Kelly_Optimizer_V7_Confirm",  {"ema":0.25,"rsi":0.20,"stoch":0.10,"macd":0.25,"bb":0.10,"news":0.10}, 5.0, None, "Le Champion #1 historique de la V7 conservé avec ses poids exacts."),
+    ("Opti_Data_Driven_Confirm",    {"ema":0.25,"macd":0.25,"rsi":0.25,"news":0.25}, 5.0, None, "Champion WR (75% en V7) : équilibre 4 piliers en mode confirmation."),
     ("Tendance_Douce_Confirm",      {"ema":0.35,"macd":0.25,"rsi":0.20,"news":0.15,"stoch":0.05}, 4.5, None, "Suit la tendance 1h avec validation momentum 5m."),
-    ("Opti_Data_Driven_Confirm",    {"ema":0.25,"macd":0.25,"rsi":0.25,"news":0.25}, 5.0, None, "Équilibre 4 piliers en mode confirmation."),
     ("Ichimoku_Cloud_Confirm",      {"ichimoku":0.50,"ema":0.25,"macd":0.15,"news":0.10}, 4.5, None, "Cassure du nuage Ichimoku + croisement Tenkan/Kijun."),
     ("Ichimoku_MACD_Confirm",       {"ichimoku":0.45,"macd":0.35,"ema":0.20}, 5.0, None, "Structure temporelle Ichimoku + accélération MACD."),
     ("Supertrend_Pure_Confirm",     {"supertrend":0.45,"ema":0.30,"macd":0.25}, 4.5, None, "Vrai Supertrend ATR + tendance macro."),
     ("OBV_Flow_Confirm",            {"obv":0.45,"ema":0.30,"macd":0.25}, 4.5, None, "Suit l'accumulation des volumes dans le sens de la tendance."),
     ("VWAP_Breakout_Confirm",       {"vwap":0.40,"ema":0.30,"macd":0.20,"obv":0.10}, 4.5, None, "Impulsion au-dessus du VWAP journalier."),
     ("Kelly_Trend_Confirm",         {"ema":0.35,"supertrend":0.25,"macd":0.25,"news":0.15}, 5.0, None, "Demi-Kelly mathématique sur tendance claire."),
-    ("Kelly_Confluence_Confirm",    {"ema":0.25,"ichimoku":0.25,"macd":0.25,"obv":0.25}, 5.0, None, "Sizing Kelly sur quadruple confirmation."),
     ("Triple_Trend_Confirm",        {"ema":0.35,"ichimoku":0.35,"supertrend":0.30}, 5.0, None, "Triple verrou : EMA + Ichimoku + Supertrend."),
-    # Nouveaux : Pullback Multi-Timeframe (Achète les replis 5m dans une tendance 1h haussière)
     ("MTF_Gold_Pullback_Confirm",   {"pullback":0.55,"ema":0.25,"obv":0.20}, 5.0, "PULLBACK", "Achète uniquement les replis RSI 5m dans le sens de la tendance 1h."),
     ("MTF_Fiber_Pullback_Confirm",  {"pullback":0.50,"supertrend":0.30,"vwap":0.20}, 5.0, "PULLBACK", "Combine tendance 1h Supertrend et respiration court terme."),
     ("MTF_Volume_Pullback_Confirm", {"pullback":0.45,"obv":0.35,"macd":0.20}, 5.0, "PULLBACK", "Repli 5m soutenu par un flux de volume OBV positif."),
     ("MTF_Smart_Pullback_Confirm",  {"pullback":0.50,"ichimoku":0.30,"news":0.20}, 4.5, "PULLBACK", "Pullback sur tendance Ichimoku et catalyseur news."),
-    # Nouveaux : Volatility Squeeze (Compression Bollinger dans Keltner puis explosion)
     ("Keltner_Squeeze_Confirm",     {"squeeze":0.55,"macd":0.25,"obv":0.20}, 5.0, "SQUEEZE", "Détecte les compressions extrêmes de volatilité et prend l'explosion."),
     ("Bollinger_Blast_Squeeze_Confirm", {"squeeze":0.50,"ema":0.30,"supertrend":0.20}, 5.0, "SQUEEZE", "Chasseur de réveil de volatilité post-consolidation."),
     ("Apex_Coiled_Squeeze_Confirm", {"squeeze":0.45,"obv":0.35,"ml":0.20}, 5.0, "SQUEEZE", "Ressort comprimé validé par les volumes et le ML."),
-    # Nouveaux : Killzones Horaires (Londres 08h-11h & NY 13h-16h UTC)
     ("London_Open_Killzone_Confirm",{"ema":0.35,"vwap":0.35,"obv":0.30}, 4.5, "KILLZONE", "Ne trade que pendant les ouvertures institutionnelles Londres/NY."),
     ("NY_WallStreet_Killzone_Confirm",{"macd":0.35,"supertrend":0.35,"vwap":0.30}, 5.0, "KILLZONE", "Capte le flux directionnel de Wall Street (13h-16h UTC)."),
     ("Instit_Flow_Killzone_Confirm",{"ichimoku":0.40,"obv":0.35,"ml":0.25}, 5.0, "KILLZONE", "Haute liquidité uniquement : évite 100% du bruit nocturne."),
-    # Nouveaux : Spécialistes par Actif (Mémorisent leurs actifs gagnants)
     ("Asset_Master_Specialist_Confirm", {"ema":0.30,"macd":0.30,"supertrend":0.20,"obv":0.20}, 5.0, "SPECIALIST", "Augmente ses mises sur ses actifs gagnants et boycotte ses actifs perdants."),
     ("Sector_Hunter_Specialist_Confirm",{"ichimoku":0.35,"vwap":0.35,"ml":0.30}, 5.0, "SPECIALIST", "Sélectionne automatiquement ses marchés de prédilection."),
 ]
 for n, w, s, spec, d in CONFIRM_SPECS:
     register_bot(n, w, "CONFIRM", "Confirmation", s, d, special=spec)
 
-# ── 2. FAMILLE RETOURNEMENT & CHASSEURS DE LIQUIDITÉ (18 Bots : Avec Filtre Anti-Couteau) ──
+# ── 2. FAMILLE RETOURNEMENT & ANTICIPATION DE CHOCS (18 Bots) ──
 RETOURN_SPECS = [
     ("RSI_Extreme_Retourn",         {"rsi":0.55,"bb":0.25,"stoch":0.20}, 4.5, None, "Achète la survente confirmée par bougie de rejet."),
     ("Bollinger_Fade_Retourn",      {"bb":0.50,"rsi":0.30,"stoch":0.20}, 4.5, None, "Rebond élastique sur les bandes de Bollinger extrêmes."),
     ("VWAP_Bounce_Retourn",         {"vwap":0.50,"rsi":0.30,"bb":0.20}, 4.5, None, "Ramène le prix vers son VWAP journalier après un excès."),
-    ("OBV_Divergence_Retourn",      {"obv":0.50,"rsi":0.30,"bb":0.20}, 4.5, None, "Détecte les vraies divergences Prix vs Volume OBV."),
+    ("OBV_Divergence_Retourn",      {"obv":0.50,"rsi":0.30,"bb":0.20}, 4.5, None, "Détecte les vraies divergences Prix vs Volume OBV (anticipe les chutes)."),
     ("Williams_Snap_Retourn",       {"williams":0.50,"rsi":0.25,"stoch":0.25}, 4.0, None, "Exploite les zones extrêmes de Williams %R (-80 / -20)."),
     ("Double_Band_Retourn",         {"bb":0.45,"vwap":0.45,"rsi":0.10}, 4.5, None, "Double élastique statistique : Bollinger + écart VWAP."),
     ("Exhaustion_Hunter_Retourn",   {"rsi":0.35,"stoch":0.35,"obv":0.30}, 4.5, None, "Repère l'essoufflement des mouvements avec divergence OBV."),
@@ -225,12 +214,10 @@ RETOURN_SPECS = [
     ("Z_Score_Sniper_Retourn",      {"bb":0.60,"rsi":0.25,"vwap":0.15}, 4.5, None, "Entre uniquement à plus de 2 écarts-types de la moyenne."),
     ("Value_Zone_Retourn",          {"vwap":0.55,"obv":0.25,"rsi":0.20}, 4.5, None, "Défend la zone de valeur institutionnelle VWAP."),
     ("Swing_Reversal_Retourn",      {"rsi":0.30,"bb":0.30,"vwap":0.20,"obv":0.20}, 4.5, None, "Confluence complète de retournement à 4 facteurs."),
-    # Nouveaux : Chasseurs de Liquidité / Stop-Hunt (Fausses cassures avec longues mèches)
-    ("Wick_Sniper_StopHunt_Retourn",{"stophunt":0.60,"rsi":0.20,"obv":0.20}, 5.0, "STOPHUNT", "Entre sur les longues mèches qui balayent les stops puis réintègrent le support."),
+    ("Wick_Sniper_StopHunt_Retourn",{"stophunt":0.60,"rsi":0.20,"obv":0.20}, 5.0, "STOPHUNT", "Entre sur les longues mèches qui balayent les stops puis réintègrent."),
     ("Liquidity_Trap_StopHunt_Retourn",{"stophunt":0.55,"bb":0.25,"vwap":0.20}, 5.0, "STOPHUNT", "Exploite les fausses cassures (Bull/Bear traps) de 20 bougies."),
     ("Whale_Absorption_StopHunt_Retourn",{"stophunt":0.50,"obv":0.35,"williams":0.15}, 5.0, "STOPHUNT", "Repère l'absorption des liquidations par les baleines."),
     ("Fakeout_Master_StopHunt_Retourn",{"stophunt":0.55,"stoch":0.25,"ml":0.20}, 5.0, "STOPHUNT", "Combine rejet sur mèche extrême et validation ML."),
-    # Nouveaux : Spécialistes & Killzone Retournement
     ("Reversal_Specialist_Retourn", {"vwap":0.40,"bb":0.35,"rsi":0.25}, 5.0, "SPECIALIST", "Joue les retournements uniquement sur les actifs où son WR est élevé."),
     ("MeanRevert_Specialist_Retourn",{"stophunt":0.40,"obv":0.30,"rsi":0.30}, 5.0, "SPECIALIST", "Spécialiste adaptatif des rebonds sur mèches par actif."),
     ("London_Fade_Killzone_Retourn",{"stophunt":0.45,"vwap":0.35,"rsi":0.20}, 4.5, "KILLZONE", "Prend le contre-pied des fausses cassures d'ouverture de session."),
@@ -259,9 +246,9 @@ CAMELEON_SPECS = [
 for n, w, s, spec, d in CAMELEON_SPECS:
     register_bot(n, w, "CAMELEON", "Caméléon", s, d, special=spec)
 
-# ── 4. FAMILLE MACHINE LEARNING (15 Bots : Exploitent le GradientBoosting V8.5) ──
+# ── 4. FAMILLE MACHINE LEARNING (15 Bots) ──
 ML_SPECS = [
-    ("ML_Pur_Sniper_Confirm",       {"ml":1.00}, "CONFIRM", 5.0, None, "100% piloté par les probabilités du GradientBoosting V8.5."),
+    ("ML_Pur_Sniper_Confirm",       {"ml":1.00}, "CONFIRM", 5.0, None, "100% piloté par les probabilités du GradientBoosting."),
     ("ML_Trend_Leader_Confirm",     {"ml":0.55,"ema":0.25,"macd":0.20}, "CONFIRM", 5.0, None, "Le ML dirige, l'EMA et le MACD valident la tendance."),
     ("ML_Pullback_Pro_Confirm",     {"ml":0.50,"pullback":0.35,"obv":0.15}, "CONFIRM", 5.0, "PULLBACK", "Combine prédiction ML et achat sur repli dans la tendance 1h."),
     ("ML_Squeeze_Break_Confirm",    {"ml":0.50,"squeeze":0.35,"macd":0.15}, "CONFIRM", 5.0, "SQUEEZE", "Déclenche sur compression de volatilité validée par l'IA."),
@@ -280,7 +267,7 @@ ML_SPECS = [
 for n, w, m, s, spec, d in ML_SPECS:
     register_bot(n, w, m, "Machine Learning", s, d, special=spec)
 
-# ── 5. FAMILLE AUTO-ADAPTATIVE RL (15 Bots : Apprennent leurs poids + Seuil Dynamique) ──
+# ── 5. FAMILLE AUTO-ADAPTATIVE RL (15 Bots) ──
 RL_SPECS = [
     ("RL_Explorer_Fast_Confirm",    {"ema":0.20,"macd":0.20,"supertrend":0.20,"obv":0.20,"ml":0.20}, "CONFIRM", 0.12, None, "Apprentissage rapide (LR=12%) en mode Confirmation."),
     ("RL_Conservative_Confirm",     {"ema":0.25,"macd":0.25,"ichimoku":0.20,"rsi":0.15,"news":0.15}, "CONFIRM", 0.05, None, "Ajuste doucement ses poids (LR=5%) après chaque trade."),
@@ -301,7 +288,7 @@ RL_SPECS = [
 for n, w, m, lr_val, spec, d in RL_SPECS:
     register_bot(n, w, m, "Auto-Adaptatif RL", 5.0, d, lr=lr_val, special=spec)
 
-# ── 6. FAMILLE MÉTA-ESSAIM & CORRÉLATION (12 Bots : Incubation 14 jours puis chasse !) ──
+# ── 6. FAMILLE MÉTA-ESSAIM & CORRÉLATION (12 Bots : Incubation 14 jours) ──
 META_SPECS = [
     ("Crowd_Top10_Meta_Confirm",        "TOP10_FOLLOW",     "Suiveur du Mouvement de Foule : entre quand >= 6 bots du Top 10 convergent."),
     ("Elite_Top5_Sniper_Meta_Confirm",  "TOP5_FOLLOW",      "Copie uniquement le consensus fort (>= 3/5) du Top 5 général."),
@@ -351,9 +338,9 @@ paper_portfolio = {
         'total_fees': 0.0,
         'positions': {},
         'custom_weights': dict(TRADER_PROFILES[n]) if BOT_META[n]['lr'] > 0 else {},
-        'dynamic_threshold': float(SIGNAL_THRESHOLD), # Pour les bots AUTOTHRESH
-        'asset_stats': {},                            # {asset: {'wins': 0, 'trades': 0, 'pnl': 0.0}} pour SPECIALIST
-        'cooldowns': {}                               # {asset: timestamp_until_allowed} anti-revenge trading
+        'dynamic_threshold': float(SIGNAL_THRESHOLD), # Démarre à 65.0%
+        'asset_stats': {},
+        'cooldowns': {}
     }
     for n in TRADER_PROFILES.keys()
 }
@@ -382,38 +369,26 @@ human_trader = {
 # APPRENTISSAGE PAR L'EXPÉRIENCE (RL + MÉMOIRE D'ACTIF + SEUIL DYNAMIQUE)
 # =====================================================================
 def record_bot_experience(bot_name: str, asset_name: str, signals_snapshot: dict, trade_type: str, profit: float, is_sl: bool):
-    """
-    Met à jour toute l'expérience du bot après un trade :
-    1. Cooldown de 30 min sur l'actif si Stop-Loss touché.
-    2. Statistiques par actif (pour les bots SPECIALIST).
-    3. Ajustement du seuil d'exigence (pour les bots AUTOTHRESH).
-    4. Ajustement des coefficients (pour les bots RL).
-    """
     p = paper_portfolio[bot_name]
     meta = BOT_META.get(bot_name, {})
 
-    # 1. Cooldown Anti-Revenge Trading si SL touché
     if is_sl and profit < 0:
         p.setdefault('cooldowns', {})[asset_name] = time.time() + COOLDOWN_SECONDS
 
-    # 2. Mémoire par actif (Asset Specialist)
     ast_stats = p.setdefault('asset_stats', {}).setdefault(asset_name, {'wins': 0, 'trades': 0, 'pnl': 0.0})
     ast_stats['trades'] += 1
     ast_stats['pnl'] = round(ast_stats.get('pnl', 0.0) + profit, 2)
     if profit > 0:
         ast_stats['wins'] += 1
 
-    # 3. Seuil d'entrée dynamique (Auto-Threshold)
+    # Seuil dynamique borné entre 60% et 82% autour de la nouvelle base de 65%
     cur_thresh = p.get('dynamic_threshold', float(SIGNAL_THRESHOLD))
     if meta.get('special') == 'AUTOTHRESH' or meta.get('lr', 0) > 0:
         if profit > 0:
-            # Redescend doucement vers 52% quand il gagne
-            p['dynamic_threshold'] = max(52.0, round(cur_thresh - 2.0, 1))
+            p['dynamic_threshold'] = max(60.0, round(cur_thresh - 1.5, 1))
         else:
-            # Monte son exigence (+4%) après une perte pour couper les séries perdantes (max 78%)
-            p['dynamic_threshold'] = min(78.0, round(cur_thresh + 4.0, 1))
+            p['dynamic_threshold'] = min(82.0, round(cur_thresh + 3.5, 1))
 
-    # 4. Mise à jour des poids RL (Online Policy Gradient)
     lr = meta.get('lr', 0.0)
     if lr <= 0 or not signals_snapshot:
         return
@@ -462,13 +437,16 @@ async def load_portfolio():
             for p_name, s in data.items():
                 if p_name in paper_portfolio and isinstance(s, dict):
                     paper_portfolio[p_name].update(s)
+                    # S'assure que le seuil dynamique respecte le nouveau plancher V8.6 (min 60%)
+                    if paper_portfolio[p_name].get('dynamic_threshold', 0) < 60.0:
+                        paper_portfolio[p_name]['dynamic_threshold'] = float(SIGNAL_THRESHOLD)
                     if paper_portfolio[p_name].get('custom_weights'):
                         TRADER_PROFILES[p_name] = dict(paper_portfolio[p_name]['custom_weights'])
             if '__human__' in data:
                 human_trader.update(data['__human__'])
             if '__meta__' in data:
                 meta_state.update(data['__meta__'])
-            print(f"🟢 Portfolio V8.5 ({len(paper_portfolio)} bots) chargé depuis JSONBin.", flush=True)
+            print(f"🟢 Portfolio V8.6 ({len(paper_portfolio)} bots) chargé depuis JSONBin.", flush=True)
         else:
             print(f"⚠️ JSONBin load HTTP {r.status_code}", flush=True)
     except Exception as e:
@@ -554,7 +532,7 @@ def fetch_news_safe(ticker_str: str) -> list:
 
 
 # =====================================================================
-# INDICATEURS ET FILTRES FINANCIERS V8.5
+# INDICATEURS ET FILTRES FINANCIERS V8.6
 # =====================================================================
 def score_rsi_retournement(rsi_val: float) -> float:
     if rsi_val <= 22: return 1.0
@@ -602,7 +580,7 @@ def compute_true_kelly_fraction(wins: int, trades: int, rr_ratio: float = 1.8) -
 
 
 # =====================================================================
-# CERVEAU QUANTITATIF V8.5 (AVEC PULLBACK MTF, SQUEEZE & STOP-HUNT)
+# CERVEAU QUANTITATIF V8.6 (AVEC DÉTECTION D'ANTICIPATION DE CHOC)
 # =====================================================================
 async def analyze_asset(name, ticker):
     try:
@@ -635,7 +613,7 @@ async def analyze_asset(name, ticker):
         ema_diff_macro_pct = (m_ema50 - m_ema200) / max(1e-9, m_ema200) * 100
         macro_trend = max(-1.0, min(1.0, ema_diff_macro_pct / 1.5))
 
-        # ── 2. INDICATEURS MICRO 5M ──
+        # ── 2. INDICATEURS MICRO 5M (Calibrés pour TP1/TP2 en 1h - 1h30) ──
         delta = df_micro['Close'].diff()
         up = delta.clip(lower=0)
         down = -1 * delta.clip(upper=0)
@@ -670,9 +648,11 @@ async def analyze_asset(name, ticker):
         atr = float(last.get('ATRr_14', prix * 0.02))
         rsi_now = float(last['RSI_14'])
 
-        whale = bool(last['Volume'] > (df_micro['Volume'].rolling(20).mean().iloc[-2] * wm)) if len(df_micro) > 20 else False
+        vol_sma20 = float(df_micro['Volume'].rolling(20).mean().iloc[-2]) if len(df_micro) > 20 else 1.0
+        vol_ratio = float(last['Volume']) / max(1e-9, vol_sma20)
+        whale = bool(vol_ratio > wm)
 
-        # Confirmation de bougie (Anti-Couteau qui tombe)
+        # Confirmation de bougie
         candle_range = max(1e-9, high_p - low_p)
         lower_wick_ratio = (min(open_p, prix) - low_p) / candle_range
         upper_wick_ratio = (high_p - max(open_p, prix)) / candle_range
@@ -689,7 +669,7 @@ async def analyze_asset(name, ticker):
         s_bb_retourn = max(-1.0, min(1.0, -((bb_pos - 0.5) * 2.2)))
         s_bb_confirm = max(-1.0, min(1.0, (bb_pos - 0.5) * 2.2))
 
-        # ── 3. INDICATEURS AVANCÉS & NOUVEAUX SIGNAUX (PULLBACK, SQUEEZE, STOPHUNT) ──
+        # ── 3. INDICATEURS AVANCÉS & DÉTECTEUR DE MOUVEMENTS BRUSQUES (CHOCS) ──
         # A. OBV Confirmation vs Divergence
         obv_series = (np.sign(df_micro['Close'].diff()) * df_micro['Volume']).fillna(0).cumsum()
         obv_sma20 = obv_series.rolling(20).mean()
@@ -737,7 +717,7 @@ async def analyze_asset(name, ticker):
         s_williams_retourn = 1.0 if williams_r < -80 else (-1.0 if williams_r > -20 else -(williams_r + 50) / 30.0)
         s_williams_confirm = (williams_r + 50) / 50.0
 
-        # F. NOUVEAU : Signal Pullback Multi-Timeframe (Tendance 1h forte + Repli 5m + Bougie de reprise)
+        # F. Signal Pullback Multi-Timeframe
         s_pullback = 0.0
         if macro_trend > 0.15 and (rsi_now < 48 or bb_pos < 0.38) and bullish_rebound_candle:
             s_pullback = min(1.0, 0.65 + (48 - min(48, rsi_now)) / 30.0)
@@ -746,7 +726,7 @@ async def analyze_asset(name, ticker):
         else:
             s_pullback = macro_trend * 0.35
 
-        # G. NOUVEAU : Signal Volatility Squeeze (Bollinger comprimé par rapport à Keltner + Explosion)
+        # G. Signal Volatility Squeeze (Compression avant explosion/chute)
         keltner_width = 3.0 * df_micro['ATRr_14']
         bb_width = df_micro['BBU_20_2.0'] - df_micro['BBL_20_2.0']
         was_squeezed = bool((bb_width.iloc[-6:-1] < keltner_width.iloc[-6:-1]).any())
@@ -755,7 +735,7 @@ async def analyze_asset(name, ticker):
         else:
             s_squeeze = s_macd * 0.5
 
-        # H. NOUVEAU : Signal Stop-Hunt / Liquidity Sweep (Mèche qui balaye le plus haut/bas de 20 bougies puis réintègre)
+        # H. Signal Stop-Hunt / Liquidity Sweep
         prev_low_20 = float(df_micro['Low'].iloc[-21:-1].min())
         prev_high_20 = float(df_micro['High'].iloc[-21:-1].max())
         if low_p <= prev_low_20 and prix > prev_low_20 and bullish_rebound_candle:
@@ -769,7 +749,7 @@ async def analyze_asset(name, ticker):
         else:
             s_stophunt = s_bb_retourn * 0.4
 
-        # I. ADX (14) & Régime de Marché
+        # I. ADX (14), Régime de Marché & DÉTECTION D'ANTICIPATION DE CHOC (Crash/Pump imminent)
         plus_dm = df_micro['High'].diff().clip(lower=0)
         minus_dm = (-df_micro['Low'].diff()).clip(lower=0)
         plus_dm = plus_dm.where(plus_dm > minus_dm, 0)
@@ -779,7 +759,23 @@ async def analyze_asset(name, ticker):
         minus_di = 100 * (minus_dm.ewm(span=14, adjust=False).mean() / atr_s)
         dx = (abs(plus_di - minus_di) / (plus_di + minus_di).replace(0, 1e-9)) * 100
         adx_val = float(dx.ewm(span=14, adjust=False).mean().iloc[-1])
-        market_regime = 'TREND' if adx_val >= 25.0 else 'RANGE'
+
+        # Détecteur de Choc / Pré-cassure (Conserve la capacité V7 à sentir une grosse chute ou explosion !)
+        shock_anticipation = (
+            whale or
+            was_squeezed or
+            abs(s_stophunt) >= 0.85 or
+            abs(s_obv_retourn) >= 0.75 or
+            (abs(s_macd) >= 0.65 and vol_ratio >= 1.5)
+        )
+
+        # Filtre de Marché Incertain : si ADX < 20 ET aucun signe de choc imminent -> UNCERTAIN
+        if adx_val >= 25.0:
+            market_regime = 'TREND'
+        elif adx_val < 20.0 and not shock_anticipation:
+            market_regime = 'UNCERTAIN'
+        else:
+            market_regime = 'RANGE'
 
         # ── 4. SENTIMENT NEWS ──
         n_score, n_count = 0.0, 0
@@ -796,7 +792,7 @@ async def analyze_asset(name, ticker):
             pass
         n_score_norm = max(-1.0, min(1.0, n_score / max(1, n_count)))
 
-        # ── 5. MACHINE LEARNING V8.5 ──
+        # ── 5. MACHINE LEARNING V8.6 ──
         if ml_engine.needs_retrain(name):
             try:
                 await asyncio.to_thread(ml_engine.train, name, df_micro)
@@ -843,7 +839,7 @@ async def analyze_asset(name, ticker):
             'ml': s_ml
         }
 
-        # ── 7. PASSE 1 : SCORES DES BOTS STANDARDS, CAMÉLÉONS, ML ET RL ──
+        # ── 7. PASSE 1 : SCORES DES BOTS + FILTRE DE CONTRADICTION SOUPLE ──
         scores = {}
         bot_snapshots = {}
 
@@ -866,25 +862,47 @@ async def analyze_asset(name, ticker):
 
             active_mode = mode
             if mode == 'CAMELEON':
-                active_mode = 'CONFIRM' if market_regime == 'TREND' else 'RETOURN'
+                active_mode = 'CONFIRM' if adx_val >= 25.0 else 'RETOURN'
 
-            vec = sig_confirm if active_mode == 'CONFIRM' else sig_retourn
-            b = sum(vec.get(k, 0.0) * w for k, w in weights.items())
-            raw_score = max(-100.0, min(100.0, b * 100.0))
+            # Cas particulier pour Kelly_Optimizer_V7_Confirm : utilise la lecture RSI/BB originale V7 pour anticiper les chutes !
+            if n_bot == "Kelly_Optimizer_V7_Confirm":
+                b_v7 = (
+                    macro_trend * weights['ema']
+                    + score_rsi_retournement(rsi_now) * weights['rsi']
+                    + score_stoch_retournement(float(last['STOCHk_14_3_3'])) * weights['stoch']
+                    + s_macd * weights['macd']
+                    + s_bb_retourn * weights['bb']
+                    + n_score_norm * weights['news']
+                )
+                raw_score = max(-100.0, min(100.0, b_v7 * 100.0))
+                bot_snapshots[n_bot] = {'ema': macro_trend, 'rsi': score_rsi_retournement(rsi_now), 'macd': s_macd}
+            else:
+                vec = sig_confirm if active_mode == 'CONFIRM' else sig_retourn
+                b = sum(vec.get(k, 0.0) * w for k, w in weights.items())
+                raw_score = max(-100.0, min(100.0, b * 100.0))
+                bot_snapshots[n_bot] = {k: vec.get(k, 0.0) for k in weights.keys()}
 
-            # PROTECTION ANTI-COUTEAU QUI TOMBE :
-            # Un bot en mode RETOURNEMENT ne peut ouvrir que si la bougie 5m montre un rejet dans son sens !
+            # A. FILTRE ÉLIMINATOIRE DE CONTRADICTION (Mais laisse passer les chocs/chutes soudaines !)
+            if active_mode == 'CONFIRM' and not shock_anticipation:
+                # Si le bot veut acheter mais que le MACD 5m ET le volume OBV plongent tous les deux -> Contradiction !
+                if raw_score > 0 and s_macd < -0.20 and s_obv_confirm < -0.20:
+                    raw_score *= 0.55
+                # Si le bot veut shorter mais que le MACD 5m ET le volume OBV explosent à la hausse -> Contradiction !
+                elif raw_score < 0 and s_macd > 0.20 and s_obv_confirm > 0.20:
+                    raw_score *= 0.55
+
+            # B. FILTRE RETOURNEMENT : exige soit une bougie de rejet, soit une divergence/choc fort
             if active_mode == 'RETOURN':
-                if raw_score > 0 and not bullish_rebound_candle:
-                    raw_score *= 0.65
-                elif raw_score < 0 and not bearish_rebound_candle:
-                    raw_score *= 0.65
-                # Empêche aussi de shorter un train haussier violent (ADX > 38) sans mèche de rejet
-                if adx_val > 38 and (raw_score * macro_trend < 0) and abs(s_stophunt) < 0.8:
-                    raw_score *= 0.50
+                if raw_score > 0 and not (bullish_rebound_candle or shock_anticipation):
+                    raw_score *= 0.70
+                elif raw_score < 0 and not (bearish_rebound_candle or shock_anticipation):
+                    raw_score *= 0.70
+
+            # C. FILTRE MARCHÉ INCERTAIN (ADX < 20 sans catalyseur) : pénalité de prudence
+            if market_regime == 'UNCERTAIN' and abs(raw_score) < 75.0:
+                raw_score *= 0.80
 
             scores[n_bot] = raw_score
-            bot_snapshots[n_bot] = {k: vec.get(k, 0.0) for k in weights.keys()}
 
         # ── 8. PASSE 2 : MÉTA-BOTS (ESSAIM, CORRÉLATION, FADE THE BOTTOM) ──
         incubation_elapsed = (time.time() - meta_state.get('experiment_start_time', time.time())) >= (INCUBATION_DAYS * 86400)
@@ -971,7 +989,8 @@ async def analyze_asset(name, ticker):
             'atr_pct': (atr / prix * 100) if prix > 0 else 0.0,
             'adx': adx_val,
             'ml_score': s_ml,
-            'market_regime': market_regime
+            'market_regime': market_regime,
+            'shock_anticipation': shock_anticipation
         }
 
         return scores, n_score_norm, whale, prix, atr, raw_data, bot_snapshots
@@ -982,7 +1001,7 @@ async def analyze_asset(name, ticker):
 
 
 # =====================================================================
-# TRAILING STOP DYNAMIQUE V8.5
+# TRAILING STOP DYNAMIQUE V8.6
 # =====================================================================
 def compute_trailing_stop(pos: dict, prix: float, atr: float) -> float:
     entry = pos['price']
@@ -1001,15 +1020,16 @@ def compute_trailing_stop(pos: dict, prix: float, atr: float) -> float:
 
 
 # =====================================================================
-# BOUCLE DE SCAN DES MARCHÉS V8.5 (TP1 50% + PROTECTION VENDREDI SOIR)
+# BOUCLE DE SCAN DES MARCHÉS V8.6 (SCAN TOUTES LES 10 MINUTES !)
 # =====================================================================
 @tasks.loop(seconds=60)
 async def market_scanner():
     await bot.wait_until_ready()
     now = datetime.now()
-    if now.minute % 5 != 0:
+    # SCAN CADENCÉ À 10 MINUTES (00, 10, 20, 30, 40, 50)
+    if now.minute % 10 != 0:
         return
-    print(f"\n[{now.strftime('%H:%M:%S')}] ⚙️ Scan Symbiosis V8.5 (100 Bots) en cours...")
+    print(f"\n[{now.strftime('%H:%M:%S')}] ⚙️ Scan Symbiosis V8.6 (Cycle 10m | Seuil 65%) en cours...")
     try:
         await asyncio.wait_for(_scan_inner(), timeout=180)
     except asyncio.TimeoutError:
@@ -1077,11 +1097,9 @@ async def _scan_inner():
                 friday_exit = False
                 if friday_shield_active:
                     age_hours = (time.time() - pos['open_time']) / 3600
-                    # Si la position est en perte, proche du Break-Even (< 1.5 ATR) ou ouverte depuis moins de 2h -> On ferme !
                     if profit_atr < 1.5 or age_hours < 2.0:
                         friday_exit = True
                     else:
-                        # Sinon elle est très gagnante : on verrouille le SL au Break-Even + frais pour le week-end
                         be_offset = pos['price'] * (COUT_PAR_LEG * 2.5)
                         if pos['type'] == 'LONG':
                             pos['sl'] = max(pos['sl'], pos['price'] + be_offset)
@@ -1089,7 +1107,7 @@ async def _scan_inner():
                             pos['sl'] = min(pos['sl'], pos['price'] - be_offset)
                         modified = True
 
-                # 2. PRISE DE PROFIT PARTIELLE TP1 (50% à +1.8 ATR) + MISE À BREAK-EVEN AUTOMATIQUE
+                # 2. PRISE DE PROFIT PARTIELLE TP1 (50% à +1.8 ATR, atteint en ~25-35 min) + BREAK-EVEN
                 if not friday_exit and not pos.get('tp1_hit', False) and profit_atr >= 1.8:
                     days_tp1 = (time.time() - pos['open_time']) / 86400
                     diff_pct_tp1 = (prix - pos['price']) / pos['price'] if pos['type'] == 'LONG' else (pos['price'] - prix) / pos['price']
@@ -1099,7 +1117,6 @@ async def _scan_inner():
                     fees_tp1 = half_notional * (COUT_PAR_LEG * 2 + days_tp1 * FUNDING_RATE_DAY)
                     net_tp1 = gross_tp1 - fees_tp1
 
-                    # On encaisse immédiatement 50% en banque !
                     p['capital'] += net_tp1
                     p['total_fees'] = p.get('total_fees', 0.0) + fees_tp1
                     pos['margin'] *= 0.50
@@ -1108,7 +1125,6 @@ async def _scan_inner():
                     pos['realized_tp1'] = net_tp1
                     pos['fees_tp1'] = fees_tp1
 
-                    # Déplacement du Stop-Loss exactement au Break-Even (+ frais couverts)
                     be_buffer = pos['price'] * (COUT_PAR_LEG * 2.2)
                     if pos['type'] == 'LONG':
                         pos['sl'] = max(pos['sl'], pos['price'] + be_buffer)
@@ -1124,7 +1140,6 @@ async def _scan_inner():
                 hit_sl = (pos['type'] == 'LONG' and prix <= pos['sl']) or \
                          (pos['type'] == 'SHORT' and prix >= pos['sl'])
 
-                # Sortie sur signal inverse UNIQUEMENT si retournement extrême (>= 80%)
                 extreme_reversal = (score <= -80.0 and pos['type'] == 'LONG') or \
                                    (score >= 80.0 and pos['type'] == 'SHORT')
 
@@ -1146,7 +1161,6 @@ async def _scan_inner():
                     p['trades'] += 1
                     p['total_fees'] = p.get('total_fees', 0.0) + frais_rem
 
-                    # Profit total du trade (incluant le TP1 à 50% s'il avait été touché !)
                     total_trade_profit = profit_rem + pos.get('realized_tp1', 0.0)
                     total_trade_fees = frais_rem + pos.get('fees_tp1', 0.0)
                     initial_notional = rem_notional * 2 if pos.get('tp1_hit') else rem_notional
@@ -1154,7 +1168,6 @@ async def _scan_inner():
                     if total_trade_profit > 0:
                         p['wins'] += 1
 
-                    # Apprentissage RL, Mémoire d'actif, Seuil dynamique & Cooldown
                     record_bot_experience(
                         n_bot, name, pos.get('signals_snapshot', {}),
                         pos['type'], total_trade_profit, is_sl=(hit_sl and total_trade_profit < 0)
@@ -1163,7 +1176,6 @@ async def _scan_inner():
                     del p['positions'][name]
                     modified = True
 
-                    # Alerte de clôture UNIQUEMENT pour le Top 10 avec @everyone
                     if n_bot in top_10_names:
                         rank_b = top_10_names.index(n_bot) + 1
                         emoji_pf = "🟢" if total_trade_profit > 0 else "🔴"
@@ -1187,41 +1199,35 @@ async def _scan_inner():
                             )
                         )
 
-            # ── B. OUVERTURE DE POSITION (AVEC FILTRES COOLDOWN, VENDREDI, KILLZONE & SPÉCIALISTE) ──
+            # ── B. OUVERTURE DE POSITION (SEUIL 65% + MAX 2 POSITIONS + ANTICIPATION CHOC) ──
             elif not pos and atr_ok:
-                if len(p['positions']) >= 3:
+                # Limite réduite à 2 positions max par bot pour éviter la dispersion
+                if len(p['positions']) >= 2:
                     continue
 
-                # 1. Vérification Protection Vendredi Soir / Dimanche & Killzone
                 if not can_open_new_trade(name, n_bot):
                     continue
 
-                # 2. Vérification Cooldown Anti-Revenge Trading (30 min après un SL sur cet actif)
                 cooldown_until = p.get('cooldowns', {}).get(name, 0)
                 if time.time() < cooldown_until:
                     continue
 
-                # 3. Seuil d'entrée dynamique (s'adapte pour les bots AUTOTHRESH et RL)
-                bot_threshold = p.get('dynamic_threshold', float(SIGNAL_THRESHOLD))
+                bot_threshold = max(60.0, p.get('dynamic_threshold', float(SIGNAL_THRESHOLD)))
                 if abs(score) < bot_threshold:
                     continue
 
-                # 4. Filtre Mémoire par Actif (pour les bots SPECIALIST)
                 meta = BOT_META.get(n_bot, {})
                 ast_stat = p.get('asset_stats', {}).get(name, {'wins': 0, 'trades': 0, 'pnl': 0.0})
                 specialist_mult = 1.0
                 if meta.get('special') == 'SPECIALIST' and ast_stat['trades'] >= 4:
                     ast_wr = ast_stat['wins'] / ast_stat['trades']
-                    if ast_wr < 0.30 and ast_stat['pnl'] < 0:
-                        # Le bot est mauvais sur cet actif : il exige un signal exceptionnel (>75%) et réduit sa mise de moitié
-                        if abs(score) < 75.0:
+                    if ast_wr < 0.35 and ast_stat['pnl'] < 0:
+                        if abs(score) < 78.0:
                             continue
                         specialist_mult = 0.50
                     elif ast_wr >= 0.55 and ast_stat['pnl'] > 0:
-                        # C'est son actif fétiche : bonus de taille de +25%
                         specialist_mult = 1.25
 
-                # Assiette de mise (Capital négatif autorisé pour nourrir Fade_Bottom, mais assiette >= 100$)
                 base_capital = max(100.0, p['capital'])
                 famille = meta.get('famille', '')
 
@@ -1231,7 +1237,6 @@ async def _scan_inner():
                 else:
                     m_target = base_capital * MARGIN_PER_TRADE * specialist_mult
 
-                # Réduction de 30% si déjà exposé dans le même sens sur un actif corrélé
                 type_p = 'LONG' if score >= bot_threshold else 'SHORT'
                 for g_assets in CORREL_GROUPS.values():
                     if name in g_assets:
@@ -1242,9 +1247,10 @@ async def _scan_inner():
                 notional_value = m_target * levier
                 frais_aller_retour_est = notional_value * (COUT_PAR_LEG * 2)
 
+                # Distances calibrées sur l'ATR 5m pour un dénouement en 1h - 1h30 :
                 sl_distance = atr * 2.0
-                tp1_distance = atr * 1.8  # Encaisse 50% + Break-Even
-                tp2_distance = atr * 3.8  # Cible finale pour les 50% restants
+                tp1_distance = atr * 1.8  # Atteint en ~25-35 min -> Encaisse 50% + Break-Even
+                tp2_distance = atr * 3.8  # Atteint en ~1h00-1h30 -> Clôture finale
 
                 p['positions'][name] = {
                     'type': type_p,
@@ -1264,24 +1270,23 @@ async def _scan_inner():
                 }
                 modified = True
 
-                # Alerte d'ouverture UNIQUEMENT si le bot fait partie du Top 10 (avec @everyone)
                 if n_bot in top_10_names:
                     rank_b = top_10_names.index(n_bot) + 1
                     atr_str = f"{raw.get('atr_pct', 0):.2f}%"
                     regime_str = raw.get('market_regime', 'TREND')
+                    shock_badge = "⚡ **[ANTICIPATION CHOC]** " if raw.get('shock_anticipation') else ""
                     pos_created = p['positions'][name]
                     await channel.send(
                         content=(
-                            f"@everyone 🏆🚀 **[#{rank_b} TOP 10] {n_bot}** ouvre **{type_p}** sur **{name}** à **{prix:,.2f}$**\n"
+                            f"@everyone 🏆🚀 {shock_badge}**[#{rank_b} TOP 10] {n_bot}** ouvre **{type_p}** sur **{name}** à **{prix:,.2f}$**\n"
                             f"> 💵 **Valeur du trade : {notional_value:,.2f}$** (Marge : {m_target:.2f}$ × Levier {levier}x) | "
                             f"Frais A/R estimés : ~{frais_aller_retour_est:.2f}$\n"
-                            f"> 🎯 **TP1 (50% + BE) : {pos_created['tp1']:,.2f}$** | 🎯 **TP2 : {pos_created['tp']:,.2f}$** | "
+                            f"> 🎯 **TP1 (~30m, 50%+BE) : {pos_created['tp1']:,.2f}$** | 🎯 **TP2 (~1h15) : {pos_created['tp']:,.2f}$** | "
                             f"🛑 **SL : {pos_created['sl']:,.2f}$**\n"
-                            f"> 📊 Confiance : {abs(score):.0f}% (Seuil bot: {bot_threshold:.0f}%) | Régime : {regime_str} (ATR {atr_str})"
+                            f"> 📊 Confiance : **{abs(score):.0f}%** (Seuil: {bot_threshold:.0f}%) | Régime : {regime_str} (ATR {atr_str})"
                         )
                     )
 
-            # Mise à jour du Max Drawdown
             if p['capital'] > p['peak_capital']:
                 p['peak_capital'] = p['capital']
             if p['peak_capital'] > 0:
@@ -1289,7 +1294,7 @@ async def _scan_inner():
                 if dd > p.get('max_drawdown', 0):
                     p['max_drawdown'] = dd
 
-        # ── C. ALERTE MOUVEMENT DE FOULE DU TOP 10 (AVEC @everyone ET ANTI-SPAM) ──
+        # ── C. ALERTE MOUVEMENT DE FOULE DU TOP 10 ──
         top_10_names = [
             n for n, d in sorted(paper_portfolio.items(), key=lambda x: x[1]['capital'], reverse=True)[:10]
         ]
@@ -1378,15 +1383,15 @@ async def _scan_inner():
 
     if modified:
         await save_portfolio()
-        print("💾 Portefeuille Symbiosis V8.5 sauvegardé.")
+        print("💾 Portefeuille Symbiosis V8.6 sauvegardé.")
 
 
 # =====================================================================
-# COMMANDES DISCORD V8.5
+# COMMANDES DISCORD V8.6 (AVEC !sniper INCLUS)
 # =====================================================================
 @bot.command()
 async def help(ctx):
-    e = discord.Embed(title="📚 Commandes Symbiosis V8.5 (100 Bots)", color=0x9b59b6)
+    e = discord.Embed(title="📚 Commandes Symbiosis V8.6 (Scan 10m | Seuil 65%)", color=0x9b59b6)
     e.add_field(name="🎯 Trading, Chasse & Classement", inline=False, value=(
         "`!sniper` : Radar interactif des 6 actifs\n"
         "`!portfolio` : Top 10 bots actuels\n"
@@ -1395,7 +1400,7 @@ async def help(ctx):
         "`!allpos` : Toutes les positions actives"
     ))
     e.add_field(name="🧠 IA, RL & Statistiques", inline=False, value=(
-        "`!ml` : Statut des modèles GradientBoosting V8.5\n"
+        "`!ml` : Statut des modèles GradientBoosting\n"
         "`!rl` : Poids appris et seuils dynamiques des bots RL\n"
         "`!metrics` : Performance par famille\n"
         "`!marches` : État des marchés et du Bouclier Vendredi Soir\n"
@@ -1410,6 +1415,134 @@ async def help(ctx):
 
 
 @bot.command()
+async def sniper(ctx):
+    """Terminal interactif V8.6 avec boutons par actif et scan global."""
+    class DashboardView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=None)
+
+        async def handle_click(self, interaction, asset_name):
+            await interaction.response.defer()
+            scores, news_score, whale, prix, atr, raw, _ = await analyze_asset(asset_name, ASSETS[asset_name])
+            if not scores or prix == 0:
+                return await interaction.followup.send(
+                    f"⚠️ Erreur : Marché **{asset_name}** fermé ou données inaccessibles.", ephemeral=True
+                )
+
+            avg_confirm = sum(scores.get(n, 0) for n, m in BOT_META.items() if m['famille'] == 'Confirmation') / 22
+            avg_retourn = sum(scores.get(n, 0) for n, m in BOT_META.items() if m['famille'] == 'Retournement') / 18
+            sc_v7 = scores.get("Kelly_Optimizer_V7_Confirm", avg_confirm)
+            ml_sc = raw.get('ml_score', 0) * 100
+
+            color = 0x2ecc71 if sc_v7 >= 30 else (0xe74c3c if sc_v7 <= -30 else 0xf1c40f)
+            action = "ACHAT 🟢" if sc_v7 >= SIGNAL_THRESHOLD else ("VENTE 🔴" if sc_v7 <= -SIGNAL_THRESHOLD else "ATTENTE / NEUTRE 🟡")
+
+            market_status = "🟢 Ouvert" if is_market_open(asset_name) else "🔴 Fermé"
+            can_enter = "✅ Autorisées" if can_open_new_trade(asset_name, "Standard") else "🛡️ Bloquées (Protection Week-end)"
+            atr_pct = raw.get('atr_pct', 0)
+            adx_val = raw.get('adx', 0)
+            regime = raw.get('market_regime', 'RANGE')
+            shock_str = "⚡ **OUI (Mouvement brusque détecté)**" if raw.get('shock_anticipation') else "Calme"
+
+            embed = discord.Embed(
+                title=f"🎯 Radar Sniper V8.6 : {asset_name}",
+                description=(
+                    f"Prix : **{prix:,.2f} $** | ATR 5m : **{atr:.2f} $** ({atr_pct:.2f}%)\n"
+                    f"Marché : {market_status} | Entrées : {can_enter}\n"
+                    f"Régime ADX ({adx_val:.1f}) : **`{regime}`** | Anticipation Choc : {shock_str}"
+                ),
+                color=color
+            )
+            embed.add_field(
+                name="⚖️ Champion V7 & Consensus (Seuil d'entrée : 65%)",
+                value=(
+                    f"Kelly_Optimizer_V7 : **{action}** ({sc_v7:+.0f}%)\n"
+                    f"`{create_pb(sc_v7, -100, 100, 12)}`\n"
+                    f"• Famille Confirmation : **{avg_confirm:+.0f}%**\n"
+                    f"• Famille Retournement : **{avg_retourn:+.0f}%**\n"
+                    f"• Prédiction IA (ML) : **{ml_sc:+.0f}%**"
+                ),
+                inline=False
+            )
+            tendance = "Haussière ↗️" if raw.get('ema50', 0) > raw.get('ema200', 0) else "Baissière ↘️"
+            macd_statut = "Bullish 🟢" if raw.get('macd_hist', 0) > 0 else "Bearish 🔴"
+            bb_pct = raw.get('bb_pos', 0.5) * 100
+            embed.add_field(
+                name="📊 Indicateurs Techniques (Horizon cible : 1h - 1h30)",
+                value=(
+                    f"**RSI (14) :** `{create_pb(raw.get('rsi', 50), 0, 100, 10)}` {raw.get('rsi', 50):.0f}\n"
+                    f"**Stoch :** `{create_pb(raw.get('stoch', 50), 0, 100, 10)}` {raw.get('stoch', 50):.0f}\n"
+                    f"**MACD hist :** {macd_statut} | **BB pos :** {bb_pct:.0f}%\n"
+                    f"**Tendance Macro 1h :** {tendance}"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="📰 Contexte & Flux",
+                value=(
+                    f"**Sentiment News :** {'Positif 🟩' if news_score > 0.1 else ('Négatif 🟥' if news_score < -0.1 else 'Neutre ⬜')} ({news_score:+.2f})\n"
+                    f"**Volume :** {'🐳 BALEINE DÉTECTÉE' if whale else '🌊 Normal'}"
+                ),
+                inline=False
+            )
+            await interaction.followup.send(embed=embed)
+
+        async def handle_all(self, interaction):
+            await interaction.response.defer()
+            embed = discord.Embed(title="🌍 Radar Global Symbiosis V8.6 (Seuil 65%)", color=0x3498db)
+            for a_name, a_ticker in ASSETS.items():
+                s, _, _, p, atr_v, raw_v, _ = await analyze_asset(a_name, a_ticker)
+                if not s or p == 0:
+                    embed.add_field(name=a_name, value="⚠️ Inaccessible / Fermé", inline=True)
+                    continue
+                sc = s.get("Kelly_Optimizer_V7_Confirm", 0)
+                ml_s = raw_v.get('ml_score', 0) * 100
+                regime = raw_v.get('market_regime', 'RANGE')
+                action = "🟢 ACHAT" if sc >= SIGNAL_THRESHOLD else ("🔴 VENTE" if sc <= -SIGNAL_THRESHOLD else "🟡 ATTENTE")
+                market_str = "🟢" if is_market_open(a_name) else "🔴 Fermé"
+                embed.add_field(
+                    name=f"{a_name} ({market_str})",
+                    value=(
+                        f"**{action}** ({sc:+.0f}% | ML: {ml_s:+.0f}%)\n"
+                        f"Prix : **{p:,.2f}$**\n"
+                        f"Régime : `{regime}` (ADX {raw_v.get('adx', 0):.0f})"
+                    ),
+                    inline=True
+                )
+            await interaction.followup.send(embed=embed)
+
+        @discord.ui.button(label="BTC", style=discord.ButtonStyle.primary, row=0)
+        async def b1(self, i, b): await self.handle_click(i, 'Bitcoin')
+
+        @discord.ui.button(label="SOL", style=discord.ButtonStyle.primary, row=0)
+        async def b2(self, i, b): await self.handle_click(i, 'Solana')
+
+        @discord.ui.button(label="GOLD", style=discord.ButtonStyle.success, row=0)
+        async def b3(self, i, b): await self.handle_click(i, 'Or')
+
+        @discord.ui.button(label="SILVER", style=discord.ButtonStyle.success, row=0)
+        async def b4(self, i, b): await self.handle_click(i, 'Argent')
+
+        @discord.ui.button(label="PLAT", style=discord.ButtonStyle.secondary, row=1)
+        async def b5(self, i, b): await self.handle_click(i, 'Platine')
+
+        @discord.ui.button(label="OIL", style=discord.ButtonStyle.secondary, row=1)
+        async def b6(self, i, b): await self.handle_click(i, 'Crude Oil')
+
+        @discord.ui.button(label="TOUT SCANNER 🌍", style=discord.ButtonStyle.danger, row=1)
+        async def b_all(self, i, b): await self.handle_all(i)
+
+    await ctx.send(
+        embed=discord.Embed(
+            title="🎛️ Terminal Sniper Symbiosis V8.6 (Scan 10m | Seuil 65%)",
+            description="Sélectionne un actif pour inspecter ses indicateurs en temps réel ou scanne les 6 marchés.",
+            color=0x2c3e50
+        ),
+        view=DashboardView()
+    )
+
+
+@bot.command()
 async def marches(ctx):
     e = discord.Embed(title="🕐 État des Marchés & Bouclier Anti-Gap", color=0x2c3e50)
     now_utc = datetime.now(timezone.utc)
@@ -1417,7 +1550,7 @@ async def marches(ctx):
         open_st = "🟢 Ouvert" if is_market_open(name) else "🔴 Fermé"
         can_enter = "✅ Entrées autorisées" if can_open_new_trade(name, "Standard") else "🛡️ Entrées bloquées (Protection Week-end)"
         e.add_field(name=name, value=f"{open_st}\n*{can_enter}*", inline=True)
-    e.set_footer(text=f"Heure UTC : {now_utc.strftime('%A %H:%M')} | Vendredi 19h UTC = Gel entrées Futures | 21h UTC = Clôture préventive")
+    e.set_footer(text=f"Heure UTC : {now_utc.strftime('%A %H:%M')} | Scan toutes les 10m | Seuil : {SIGNAL_THRESHOLD}%")
     await ctx.send(embed=e)
 
 
@@ -1473,7 +1606,7 @@ async def rl(ctx):
 
 @bot.command()
 async def portfolio(ctx):
-    e = discord.Embed(title="🏆 Top 10 Bots — Symbiosis V8.5", color=0xf1c40f)
+    e = discord.Embed(title="🏆 Top 10 Bots — Symbiosis V8.6", color=0xf1c40f)
     for idx, (n, d) in enumerate(sorted(paper_portfolio.items(), key=lambda x: x[1]['capital'], reverse=True)[:10], 1):
         pnl_pct = (d['capital'] - d['initial_capital']) / d['initial_capital'] * 100
         wr = (d['wins'] / d['trades'] * 100) if d['trades'] > 0 else 0
@@ -1484,211 +1617,16 @@ async def portfolio(ctx):
             inline=False
         )
     await ctx.send(embed=e)
-@bot.command()
-async def sniper(ctx):
-    """Terminal interactif V8.5 avec boutons par actif et scan global."""
-    class DashboardView(discord.ui.View):
-        def __init__(self):
-            super().__init__(timeout=None)
 
-        async def handle_click(self, interaction, asset_name):
-            await interaction.response.defer()
-            scores, news_score, whale, prix, atr, raw, _ = await analyze_asset(asset_name, ASSETS[asset_name])
-            if not scores or prix == 0:
-                return await interaction.followup.send(
-                    f"⚠️ Erreur : Marché **{asset_name}** fermé ou données inaccessibles.", ephemeral=True
-                )
-
-            # Consensus des 100 bots sur cet actif
-            avg_confirm = sum(scores.get(n, 0) for n, m in BOT_META.items() if m['famille'] == 'Confirmation') / 22
-            avg_retourn = sum(scores.get(n, 0) for n, m in BOT_META.items() if m['famille'] == 'Retournement') / 18
-            sc_ref = scores.get("Opti_Data_Driven_Confirm", avg_confirm)
-            ml_sc = raw.get('ml_score', 0) * 100
-
-            color = 0x2ecc71 if sc_ref >= 25 else (0xe74c3c if sc_ref <= -25 else 0xf1c40f)
-            action = "ACHAT 🟢" if sc_ref >= SIGNAL_THRESHOLD else ("VENTE 🔴" if sc_ref <= -SIGNAL_THRESHOLD else "NEUTRE 🟡")
-
-            market_status = "🟢 Ouvert" if is_market_open(asset_name) else "🔴 Fermé"
-            can_enter = "✅ Autorisées" if can_open_new_trade(asset_name, "Standard") else "🛡️ Bloquées (Protection Week-end)"
-            atr_ok = atr_is_favorable(atr, prix, asset_name)
-            atr_status = "✅ Favorable" if atr_ok else "⚠️ Défavorable"
-            atr_pct = raw.get('atr_pct', 0)
-            adx_val = raw.get('adx', 0)
-            regime = raw.get('market_regime', 'RANGE')
-
-            embed = discord.Embed(
-                title=f"🎯 Radar Sniper V8.5 : {asset_name}",
-                description=(
-                    f"Prix : **{prix:,.2f} $** | ATR : **{atr:.2f} $** ({atr_pct:.2f}%)\n"
-                    f"Marché : {market_status} | Entrées : {can_enter}\n"
-                    f"Régime ADX ({adx_val:.1f}) : **{'🔥 TENDANCE' if regime=='TREND' else '🌊 RANGE'}** | Volatilité : {atr_status}"
-                ),
-                color=color
-            )
-            embed.add_field(
-                name="⚖️ Signal Référence & Consensus par Famille",
-                value=(
-                    f"Signal Directeur : **{action}** ({sc_ref:+.0f}%)\n"
-                    f"`{create_pb(sc_ref, -100, 100, 12)}`\n"
-                    f"• Famille Confirmation : **{avg_confirm:+.0f}%**\n"
-                    f"• Famille Retournement : **{avg_retourn:+.0f}%**\n"
-                    f"• Prédiction IA (ML 30m) : **{ml_sc:+.0f}%**"
-                ),
-                inline=False
-            )
-            tendance = "Haussière ↗️" if raw.get('ema50', 0) > raw.get('ema200', 0) else "Baissière ↘️"
-            macd_statut = "Bullish 🟢" if raw.get('macd_hist', 0) > 0 else "Bearish 🔴"
-            bb_pct = raw.get('bb_pos', 0.5) * 100
-            embed.add_field(
-                name="📊 Indicateurs Techniques (5m / 1h)",
-                value=(
-                    f"**RSI (14) :** `{create_pb(raw.get('rsi', 50), 0, 100, 10)}` {raw.get('rsi', 50):.0f}\n"
-                    f"**Stoch :** `{create_pb(raw.get('stoch', 50), 0, 100, 10)}` {raw.get('stoch', 50):.0f}\n"
-                    f"**MACD hist :** {macd_statut} | **BB pos :** {bb_pct:.0f}%\n"
-                    f"**Tendance Macro 1h :** {tendance}"
-                ),
-                inline=False
-            )
-            embed.add_field(
-                name="📰 Contexte & Flux",
-                value=(
-                    f"**Sentiment News :** {'Positif 🟩' if news_score > 0.1 else ('Négatif 🟥' if news_score < -0.1 else 'Neutre ⬜')} ({news_score:+.2f})\n"
-                    f"**Volume 5m :** {'🐳 BALEINE DÉTECTÉE' if whale else '🌊 Normal'}"
-                ),
-                inline=False
-            )
-            await interaction.followup.send(embed=embed)
-
-        async def handle_all(self, interaction):
-            await interaction.response.defer()
-            embed = discord.Embed(title="🌍 Radar Global Symbiosis V8.5 (6 Actifs)", color=0x3498db)
-            for a_name, a_ticker in ASSETS.items():
-                s, _, _, p, atr_v, raw_v, _ = await analyze_asset(a_name, a_ticker)
-                if not s or p == 0:
-                    embed.add_field(name=a_name, value="⚠️ Inaccessible / Fermé", inline=True)
-                    continue
-                sc = s.get("Opti_Data_Driven_Confirm", 0)
-                ml_s = raw_v.get('ml_score', 0) * 100
-                regime = raw_v.get('market_regime', 'RANGE')
-                action = "🟢 ACHAT" if sc >= SIGNAL_THRESHOLD else ("🔴 VENTE" if sc <= -SIGNAL_THRESHOLD else "🟡 NEUTRE")
-                market_str = "🟢" if is_market_open(a_name) else "🔴 Fermé"
-                embed.add_field(
-                    name=f"{a_name} ({market_str})",
-                    value=(
-                        f"**{action}** ({sc:+.0f}% | ML: {ml_s:+.0f}%)\n"
-                        f"Prix : **{p:,.2f}$**\n"
-                        f"Régime : `{regime}` (ADX {raw_v.get('adx', 0):.0f})"
-                    ),
-                    inline=True
-                )
-            await interaction.followup.send(embed=embed)
-
-        @discord.ui.button(label="BTC", style=discord.ButtonStyle.primary, row=0)
-        async def b1(self, i, b): await self.handle_click(i, 'Bitcoin')
-
-        @discord.ui.button(label="SOL", style=discord.ButtonStyle.primary, row=0)
-        async def b2(self, i, b): await self.handle_click(i, 'Solana')
-
-        @discord.ui.button(label="GOLD", style=discord.ButtonStyle.success, row=0)
-        async def b3(self, i, b): await self.handle_click(i, 'Or')
-
-        @discord.ui.button(label="SILVER", style=discord.ButtonStyle.success, row=0)
-        async def b4(self, i, b): await self.handle_click(i, 'Argent')
-
-        @discord.ui.button(label="PLAT", style=discord.ButtonStyle.secondary, row=1)
-        async def b5(self, i, b): await self.handle_click(i, 'Platine')
-
-        @discord.ui.button(label="OIL", style=discord.ButtonStyle.secondary, row=1)
-        async def b6(self, i, b): await self.handle_click(i, 'Crude Oil')
-
-        @discord.ui.button(label="TOUT SCANNER 🌍", style=discord.ButtonStyle.danger, row=1)
-        async def b_all(self, i, b): await self.handle_all(i)
-
-    await ctx.send(
-        embed=discord.Embed(
-            title="🎛️ Terminal Sniper Symbiosis V8.5",
-            description="Sélectionne un actif pour inspecter ses indicateurs en temps réel ou scanne les 6 marchés.",
-            color=0x2c3e50
-        ),
-        view=DashboardView()
-    )
-
-
-@bot.command()
-async def mypos(ctx):
-    if not human_trader['positions']:
-        e = discord.Embed(title="👤 Tes positions", description="Aucune position ouverte.\nUtilise `!buy <actif>` ou `!sell <actif>`.", color=0x95a5a6)
-        e.add_field(name="Capital disponible", value=f"**{human_trader['capital']:.2f}$**", inline=True)
-        return await ctx.send(embed=e)
-    msg = await ctx.send("🔄 Récupération des prix en temps réel...")
-    e = discord.Embed(title="👤 Tes positions ouvertes", color=0x3498db)
-    total_pnl = 0.0
-    for asset_name, pos in human_trader['positions'].items():
-        ticker = ASSETS[asset_name]
-        levier = LEVERAGE_MAP.get(asset_name, 10)
-        try:
-            if ticker.endswith('USDT'):
-                ohlcv = binance.fetch_ohlcv(ticker, '1m', limit=1)
-                prix_now = float(ohlcv[-1][4]) if ohlcv else pos['price']
-            else:
-                hist = yf.Ticker(ticker).history(period='1d', interval='1m')
-                prix_now = float(hist['Close'].iloc[-1]) if not hist.empty else pos['price']
-        except Exception:
-            prix_now = pos['price']
-        days = (time.time() - pos['open_time']) / 86400
-        diff_pct = (prix_now - pos['price']) / pos['price'] if pos['type'] == 'LONG' else (pos['price'] - prix_now) / pos['price']
-        notional = pos.get('notionnel', pos['margin'] * levier)
-        gross = notional * diff_pct
-        frais = notional * (COUT_PAR_LEG * 2 + days * FUNDING_RATE_DAY)
-        pnl = gross - frais
-        total_pnl += pnl
-        pnl_icon = "🟢" if pnl >= 0 else "🔴"
-        e.add_field(
-            name=f"📍 {asset_name} ({pos['type']} ×{levier})",
-            value=(
-                f"Entrée : **{pos['price']:,.2f}$** | Actuel : **{prix_now:,.2f}$**\n"
-                f"P&L Net latent : {pnl_icon} **{pnl:+.2f}$** (Taille : {notional:,.0f}$ | Frais : -{frais:.2f}$)\n"
-                f"🛑 SL : {pos['sl']:,.2f}$ | 🎯 TP : {pos['tp']:,.2f}$"
-            ),
-            inline=False
-        )
-    e.add_field(name="Bilan latent", value=f"P&L latent : **{total_pnl:+.2f}$** | Equity : **{human_trader['capital']+total_pnl:.2f}$**", inline=False)
-    await msg.edit(content=None, embed=e)
-
-
-@bot.command()
-async def mystats(ctx):
-    h = human_trader
-    pnl_total = ((h['capital'] - h['initial_capital']) / h['initial_capital']) * 100
-    wr = (h['wins'] / h['trades'] * 100) if h['trades'] > 0 else 0
-    e = discord.Embed(title="👤 Tes statistiques de trading", color=0x9b59b6)
-    e.add_field(name="Capital", value=f"**{h['capital']:.2f}$** ({pnl_total:+.1f}%)\nFrais payés : -{h.get('total_fees', 0.0):.2f}$", inline=True)
-    e.add_field(name="Performance", value=f"Trades : **{h['trades']}** (WR: **{wr:.1f}%**)\nMax DD : -{h['max_drawdown']:.1f}%", inline=True)
-    await ctx.send(embed=e)
-
-
-@bot.command()
-async def rank(ctx):
-    all_entries = list(paper_portfolio.items()) + [(HUMAN_NAME, human_trader)]
-    sorted_all = sorted(all_entries, key=lambda x: x[1]['capital'], reverse=True)
-    rank_num = next((i+1 for i, (n, _) in enumerate(sorted_all) if n == HUMAN_NAME), 0)
-    total = len(sorted_all)
-    e = discord.Embed(title=f"🏆 Ton rang : #{rank_num} / {total}", color=0xf1c40f)
-    for i in range(max(0, rank_num - 3), min(total, rank_num + 2)):
-        name, d = sorted_all[i]
-        pnl = ((d['capital'] - d['initial_capital']) / d['initial_capital']) * 100
-        prefix = "👉 **[TOI]** " if name == HUMAN_NAME else ""
-        e.add_field(name=f"#{i+1} {prefix}{name}", value=f"**{d['capital']:.2f}$** ({pnl:+.1f}%)", inline=False)
-    await ctx.send(embed=e)
 
 @bot.command(aliases=['mlstatus'])
 async def ml(ctx):
     status_dict = ml_engine.get_status()
     e = discord.Embed(
-        title="🧠 Moteur Machine Learning V8.5 (Seuil ATR Dynamique)",
+        title="🧠 Moteur Machine Learning V8.6 (Seuil ATR Dynamique)",
         description=(
             "**Algorithme** : `GradientBoostingClassifier` équilibré (`max_depth=3`)\n"
-            "**Horizon** : `+30 min` (+6 bougies 5m) | **Seuil** : `±0.85 × ATR_5m`"
+            "**Horizon** : `+30m à 1h` | **Seuil** : `±0.85 × ATR_5m`"
         ),
         color=0x3498db
     )
@@ -1746,7 +1684,7 @@ async def lb(ctx):
             tc = sum(d['capital'] for _, d in sorted_bots)
             ti = sum(d['initial_capital'] for _, d in sorted_bots)
             e = discord.Embed(
-                title=f"🏆 Classement Général V8.5 — {len(sorted_bots)} Participants",
+                title=f"🏆 Classement Général V8.6 — {len(sorted_bots)} Participants",
                 description=build_page(self.page),
                 color=0xf1c40f
             )
@@ -1775,7 +1713,7 @@ async def metrics(ctx):
         fam = BOT_META.get(n, {}).get("famille", "Autre")
         familles[fam].append(n)
 
-    e = discord.Embed(title="📊 Performance par Famille V8.5 (100 Bots)", color=0x2ecc71)
+    e = discord.Embed(title="📊 Performance par Famille V8.6 (100 Bots)", color=0x2ecc71)
     fam_results = []
     for fam, noms in familles.items():
         tc = sum(paper_portfolio[n]['capital'] for n in noms)
@@ -1800,7 +1738,7 @@ async def metrics(ctx):
 
 @bot.command()
 async def couts(ctx):
-    e = discord.Embed(title="💸 Leviers & Coûts de Friction V8.5", color=0xe74c3c)
+    e = discord.Embed(title="💸 Leviers & Coûts de Friction V8.6", color=0xe74c3c)
     for name in ASSETS:
         lev = LEVERAGE_MAP.get(name, 10)
         notional_ex = 75.0 * lev
@@ -1845,7 +1783,7 @@ async def resume(ctx):
     best = max(all_bots, key=lambda x: x[1]['capital'])
     worst = min(all_bots, key=lambda x: x[1]['capital'])
 
-    e = discord.Embed(title="📋 Résumé Exécutif Symbiosis V8.5 (100 Bots)", color=0x2c3e50)
+    e = discord.Embed(title="📋 Résumé Exécutif Symbiosis V8.6 (Scan 10m | Seuil 65%)", color=0x2c3e50)
     e.add_field(name="💰 AUM Global", value=f"**{tc:,.2f}$** ({((tc-ti)/ti*100):+.2f}%)\nFrais totaux : **-{tf:,.2f}$**", inline=True)
     e.add_field(name="🎯 Activité & Rentabilité", value=f"Trades : **{tt}** (WR: **{wr:.1f}%**)\nBots positifs : **{positives}/100**", inline=True)
     e.add_field(name="🏆 Meilleur vs 💀 Pire", value=f"🥇 **{best[0]}** : {best[1]['capital']:.2f}$\n💀 **{worst[0]}** : {worst[1]['capital']:.2f}$", inline=False)
@@ -1940,6 +1878,71 @@ async def close(ctx, *, asset_arg: str = None):
     await save_portfolio()
     await ctx.send(f"{'🟢' if profit>0 else '🔴'} Position **{asset_name}** fermée : **{profit:+.2f}$** net (Brut: {gross:+.2f}$ | Frais: -{frais:.2f}$) | Capital: **{human_trader['capital']:.2f}$**")
 
+@bot.command()
+async def mypos(ctx):
+    if not human_trader['positions']:
+        e = discord.Embed(title="👤 Tes positions", description="Aucune position ouverte.\nUtilise `!buy <actif>` ou `!sell <actif>`.", color=0x95a5a6)
+        e.add_field(name="Capital disponible", value=f"**{human_trader['capital']:.2f}$**", inline=True)
+        return await ctx.send(embed=e)
+    msg = await ctx.send("🔄 Récupération des prix en temps réel...")
+    e = discord.Embed(title="👤 Tes positions ouvertes", color=0x3498db)
+    total_pnl = 0.0
+    for asset_name, pos in human_trader['positions'].items():
+        ticker = ASSETS[asset_name]
+        levier = LEVERAGE_MAP.get(asset_name, 10)
+        try:
+            if ticker.endswith('USDT'):
+                ohlcv = binance.fetch_ohlcv(ticker, '1m', limit=1)
+                prix_now = float(ohlcv[-1][4]) if ohlcv else pos['price']
+            else:
+                hist = yf.Ticker(ticker).history(period='1d', interval='1m')
+                prix_now = float(hist['Close'].iloc[-1]) if not hist.empty else pos['price']
+        except Exception:
+            prix_now = pos['price']
+        days = (time.time() - pos['open_time']) / 86400
+        diff_pct = (prix_now - pos['price']) / pos['price'] if pos['type'] == 'LONG' else (pos['price'] - prix_now) / pos['price']
+        notional = pos.get('notionnel', pos['margin'] * levier)
+        gross = notional * diff_pct
+        frais = notional * (COUT_PAR_LEG * 2 + days * FUNDING_RATE_DAY)
+        pnl = gross - frais
+        total_pnl += pnl
+        pnl_icon = "🟢" if pnl >= 0 else "🔴"
+        e.add_field(
+            name=f"📍 {asset_name} ({pos['type']} ×{levier})",
+            value=(
+                f"Entrée : **{pos['price']:,.2f}$** | Actuel : **{prix_now:,.2f}$**\n"
+                f"P&L Net latent : {pnl_icon} **{pnl:+.2f}$** (Taille : {notional:,.0f}$ | Frais : -{frais:.2f}$)\n"
+                f"🛑 SL : {pos['sl']:,.2f}$ | 🎯 TP : {pos['tp']:,.2f}$"
+            ),
+            inline=False
+        )
+    e.add_field(name="Bilan latent", value=f"P&L latent : **{total_pnl:+.2f}$** | Equity : **{human_trader['capital']+total_pnl:.2f}$**", inline=False)
+    await msg.edit(content=None, embed=e)
+
+@bot.command()
+async def mystats(ctx):
+    h = human_trader
+    pnl_total = ((h['capital'] - h['initial_capital']) / h['initial_capital']) * 100
+    wr = (h['wins'] / h['trades'] * 100) if h['trades'] > 0 else 0
+    e = discord.Embed(title="👤 Tes statistiques de trading", color=0x9b59b6)
+    e.add_field(name="Capital", value=f"**{h['capital']:.2f}$** ({pnl_total:+.1f}%)\nFrais payés : -{h.get('total_fees', 0.0):.2f}$", inline=True)
+    e.add_field(name="Performance", value=f"Trades : **{h['trades']}** (WR: **{wr:.1f}%**)\nMax DD : -{h['max_drawdown']:.1f}%", inline=True)
+    await ctx.send(embed=e)
+
+@bot.command()
+async def rank(ctx):
+    all_entries = list(paper_portfolio.items()) + [(HUMAN_NAME, human_trader)]
+    sorted_all = sorted(all_entries, key=lambda x: x[1]['capital'], reverse=True)
+    rank_num = next((i+1 for i, (n, _) in enumerate(sorted_all) if n == HUMAN_NAME), 0)
+    total = len(sorted_all)
+    e = discord.Embed(title=f"🏆 Ton rang : #{rank_num} / {total}", color=0xf1c40f)
+    for i in range(max(0, rank_num - 3), min(total, rank_num + 2)):
+        name, d = sorted_all[i]
+        pnl = ((d['capital'] - d['initial_capital']) / d['initial_capital']) * 100
+        prefix = "👉 **[TOI]** " if name == HUMAN_NAME else ""
+        e.add_field(name=f"#{i+1} {prefix}{name}", value=f"**{d['capital']:.2f}$** ({pnl:+.1f}%)", inline=False)
+    await ctx.send(embed=e)
+
 
 @tasks.loop(seconds=120)
 async def watchdog():
@@ -1953,7 +1956,7 @@ async def watchdog():
 @bot.event
 async def on_ready():
     await load_portfolio()
-    print(f"✅ Symbiosis Algorithm Trading V8.5 prêt ({len(paper_portfolio)} bots en ligne).", flush=True)
+    print(f"✅ Symbiosis Algorithm Trading V8.6 prêt ({len(paper_portfolio)} bots en ligne | Scan 10m | Seuil 65%).", flush=True)
     market_scanner.start()
     watchdog.start()
 
